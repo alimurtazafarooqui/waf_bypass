@@ -4,19 +4,30 @@ from colorama import Fore, Style
 import requests
 from request import Request
 import re
+from fake_useragent import UserAgent
 from urllib.parse import urljoin
+from selenium import webdriver
+from seleniumrequests import Chrome
 
 
 class waf_bypass:
-    """Testing Class"""
     def __init__(self, host, proxy):
         self.host = host
+
+        ua = UserAgent()
+        userAgent = ua.random
+
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument('user-agent=' + userAgent)
+        driver = Chrome(options=chrome_options)
+
         if proxy == '':
             self.proxy = {'http': proxy, 'https': proxy}
         else:
             self.proxy = {'http': None, 'https': None}
-        self.session = requests.Session()
-        self.session.trust_env = False
+        self.session = driver.request
         self.name_pattern = re.compile(r'\d+\.json')
         self.timeout = 150
 
@@ -60,29 +71,36 @@ class waf_bypass:
 
     def output(self, test_type, request_data, request):
         base_str = '{{}}{} in {}: {{}}{}'.format(request_data.path.replace("payload/", ""), test_type, Style.RESET_ALL)
+        print(request.status_code)
         if request.status_code == 403:
             print(base_str.format(Fore.GREEN, 'BLOCKED'))
         else:
             print(base_str.format(Fore.RED, 'BYPASSED'))
+        print()
 
     def test_args(self, request_data):
-        request = self.session.get(self.host, params=request_data.args, proxies=self.proxy, timeout=self.timeout)
+        request = self.session('GET', self.host, params=request_data.args, proxies=self.proxy, timeout=self.timeout)
+        print(request_data.args)
         self.output('ARGS', request_data, request)
 
     def test_ua(self, request_data):
-        request = self.session.get(self.host, headers={'User-Agent':request_data.ua}, proxies=self.proxy, timeout=self.timeout)
+        request = self.session('GET', self.host, headers={'User-Agent':request_data.ua}, proxies=self.proxy, timeout=self.timeout)
+        print(request_data.ua)
         self.output('UA', request_data, request)
 
     def test_body(self, request_data):
-        request = self.session.post(self.host, data=request_data.req_body, proxies=self.proxy, timeout=self.timeout)
+        request = self.session('POST', self.host, data=request_data.req_body, proxies=self.proxy, timeout=self.timeout)
+        print(request_data.req_body)
         self.output('Body', request_data, request)
 
     def test_cookie(self, request_data):
-        request = self.session.get(self.host, cookies=request_data.cookie, proxies=self.proxy, timeout=self.timeout)
+        request = self.session('GET', self.host, cookies=request_data.cookie, proxies=self.proxy, timeout=self.timeout)
+        print(request_data.cookie)
         self.output('Cookie', request_data, request)
 
     def test_header(self, request_data):
-        request = self.session.get(self.host, headers=request_data.req_header, proxies=self.proxy, timeout=self.timeout)
+        request = self.session('GET', self.host, headers=request_data.req_header, proxies=self.proxy, timeout=self.timeout)
+        print(request_data.req_header)
         self.output('Header', request_data, request)
 
     def test_url(self, request_data):
